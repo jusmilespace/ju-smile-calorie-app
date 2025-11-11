@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#97d0ba" />
+    <title>Ju Smile 減脂日誌</title>
+
+    <!-- 這三行一定要長得一模一樣，勿再手動加 /ju-smile-calorie-app/ 前綴 -->
+    <link rel="icon" href="%BASE_URL%favicon.ico" />
+    <link rel="manifest" href="%BASE_URL%manifest.json?v=20251111-7" />
+    <link rel="apple-touch-icon" href="%BASE_URL%icon-192.png" />
+
+    <style>
+      :root{--mint:#97d0ba;--charcoal:#1f2937;--bg:#f7faf9;--border:#e9ecef}
+      body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:var(--bg);color:#213}
+      .wrap{max-width:700px;margin:0 auto;padding:12px}
+      .card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:12px;margin:12px 0}
+      .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+      .btn{border:1px solid var(--border);background:#fff;border-radius:999px;padding:8px 12px;cursor:pointer}
+      .btn-solid{background:var(--mint);color:#fff;border:none}
+      .input{width:100%;border:1px solid var(--border);border-radius:12px;padding:8px 10px;box-sizing:border-box}
+      .grid{display:grid;gap:8px}
+      .grid-2{grid-template-columns:1fr 1fr}
+      .tabbar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);}
+      .tabbar .inner{max-width:700px;margin:0 auto;display:flex;gap:6px;padding:8px}
+      .tab{flex:1;border-radius:12px;padding:8px 0;display:flex;flex-direction:column;align-items:center;font-size:12px;color:#333}
+      .tab.active{background:var(--mint);color:#fff}
+      .ring{width:70px;height:70px;position:relative}
+      .toast{position:fixed;left:0;right:0;bottom:88px;display:flex;justify-content:center}
+      .toast .msg{background:#000a;color:#fff;border-radius:999px;padding:8px 14px;font-size:12px}
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- 入口腳本用 Vite 官方寫法，開頭一定是 / -->
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

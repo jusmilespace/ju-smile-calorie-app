@@ -989,7 +989,7 @@ useEffect(() => {
     if (localStorage.getItem("JU_IMPORTED_V1")) return;
 
     const base = (import.meta as any).env?.BASE_URL || "/";
-    const url = (p: string) => `${base}${p}?v=2025-11-12`; // 可用今天日期當版本
+    const url = (p: string) => `${base}data/${p}?v=2025-11-12`; // 修正：加入 data/ 子路徑
 
     // 直接沿用你既有的 fetchCsv 與同步邏輯格式
     const [foodRows, unitRows, typeRows, metRows] = await Promise.all([

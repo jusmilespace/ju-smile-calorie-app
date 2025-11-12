@@ -1,5 +1,6 @@
 // src/App.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { initialImportIfNeeded } from "./lib/dataSync";
 import { Home as HomeIcon, ScanLine, LineChart, User, Utensils } from "lucide-react";
 import type { DayData, Settings, FoodItem, ExerciseItem } from "./types";
 import { loadDay, saveDay, loadSettings, saveSettings } from "./storage";
@@ -792,10 +793,34 @@ function QuickPage({
 
 /* ---------- App ---------- */
 export default function App() {
-  const [srcPrecise, setSrcPrecise] = useState(localStorage.getItem("JU_SRC_PRECISE") || "");
-  const [srcUnit, setSrcUnit] = useState(localStorage.getItem("JU_SRC_UNIT") || "");
-  const [srcMet, setSrcMet] = useState(localStorage.getItem("JU_SRC_MET") || "");
-  const [srcType, setSrcType] = useState(localStorage.getItem("JU_SRC_TYPE") || "");
+  // ⬇⬇ 直接貼在 export default function App() { 的下一行
+const [ready, setReady] = useState(false);
+
+useEffect(() => {
+  (async () => {
+    await initialImportIfNeeded();   // 首啟自動導入 / dataVersion 變更自動重匯
+    setReady(true);
+  })();
+}, []);
+
+// 這個 early return 讓畫面在匯入完成前不渲染
+if (!ready) return null;
+// 你原本的四個 state 先設空字串
+const [srcPrecise, setSrcPrecise] = useState("");
+const [srcUnit,    setSrcUnit]    = useState("");
+const [srcMet,     setSrcMet]     = useState("");
+const [srcType,    setSrcType]    = useState("");
+
+// ready 後再從 localStorage 把真正的預設 URL 補回來
+useEffect(() => {
+  if (!ready) return;
+  setSrcPrecise(localStorage.getItem("JU_SRC_PRECISE") || "");
+  setSrcUnit   (localStorage.getItem("JU_SRC_UNIT")    || "");
+  setSrcMet    (localStorage.getItem("JU_SRC_MET")     || "");
+  setSrcType   (localStorage.getItem("JU_SRC_TYPE")    || "");
+}, [ready]);
+
+
 
   // Type Table 以 state 管理
   const [typeTable, setTypeTable] = useState<Record<string, { kcal: number; protein: number; carb: number; fat: number }>>(
@@ -984,69 +1009,7 @@ export default function App() {
     try { if (!typeTable["全穀雜糧類"]) console.warn("TypeTable: '全穀雜糧類' 不在表內"); } catch {}
   }, [typeTable]);
 // —— 新增：首次導入（從 public/ 四個 CSV 自動導入到 localStorage）——
-useEffect(() => {
-  (async () => {
-    if (localStorage.getItem("JU_IMPORTED_V1")) return;
 
-    const base = (import.meta as any).env?.BASE_URL || "/";
-    const url = (p: string) => `${base}data/${p}?v=2025-11-12`; // 修正：加入 data/ 子路徑
-
-    // 直接沿用你既有的 fetchCsv 與同步邏輯格式
-    const [foodRows, unitRows, typeRows, metRows] = await Promise.all([
-      fetchCsv(url("Food_DB.csv")),
-      fetchCsv(url("Unit_Map.csv")),
-      fetchCsv(url("Type_Table.csv")),
-      fetchCsv(url("Exercise_Met.csv")),
-    ]);
-
-    // —— 建 JU_PRECISE_DB ——（與你 syncPrecise 完全相同的落地格式）
-    const preciseDB: any = {};
-    for (const r of foodRows) {
-      const f = r.food, u = r.unit;
-      if (!f || !u) continue;
-      if (!preciseDB[f]) preciseDB[f] = {};
-      preciseDB[f][u] = { kcal: +r.kcal || 0, protein: +r.protein || 0, carb: +r.carb || 0, fat: +r.fat || 0 };
-    }
-    localStorage.setItem("JU_PRECISE_DB", JSON.stringify(preciseDB));
-
-    // —— 建 JU_UNIT_MAP ——（與你 syncUnit 相同）
-    const unitMap: any = {};
-    for (const r of unitRows) {
-      const f = r.food, u = r.unit;
-      if (!f || !u) continue;
-      if (!unitMap[f]) unitMap[f] = [];
-      unitMap[f].push({ unit: u, perUnitServings: +r.perUnitServings || 0, type: r.type || "其他類" });
-    }
-    localStorage.setItem("JU_UNIT_MAP", JSON.stringify(unitMap));
-
-    // —— 建 JU_EXERCISE_MET ——（與你 syncMet 相同）
-    const met: any = {};
-    for (const r of metRows) {
-      const n = (r.name ?? r.活動 ?? r.activity ?? r.Activity ?? "").toString().trim();
-      const v = Number(r.met ?? r.MET ?? r.Met ?? r.met_value ?? r.value ?? NaN);
-      if (n && !Number.isNaN(v)) met[n] = v;
-    }
-    localStorage.setItem("JU_EXERCISE_MET", JSON.stringify(met));
-
-    // —— 建 JU_TYPE_TABLE ——（與你 syncType 相同 + 即時 setState）
-    const table: any = {};
-    for (const r of typeRows) {
-      const t = r.type || r.Type;
-      if (!t) continue;
-      table[t] = {
-        kcal: +r.kcal || +r.Kcal || 0,
-        protein: +r.protein || +r.Protein || 0,
-        carb: +r.carb || +r.Carb || 0,
-        fat: +r.fat || +r.Fat || 0,
-      };
-    }
-    localStorage.setItem("JU_TYPE_TABLE", JSON.stringify(table));
-    setTypeTable(table);
-
-    localStorage.setItem("JU_IMPORTED_V1", "1");
-    localStorage.setItem("JU_LAST_SYNC_AT", new Date().toISOString());
-  })().catch(console.error);
-}, []);
 
   return (
     <div>

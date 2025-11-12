@@ -2,23 +2,21 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-const BASE = '/ju-smile-calorie-app/'
-const DATA_REV = '2025-11-12-2055' // ← 換一個新字串
+const DATA_REV = '2025-11-12-2145' // ← 換新字串
 
 export default defineConfig({
-  base: BASE,
+  base: '/ju-smile-calorie-app/',
   plugins: [
     react(),
     VitePWA({
       registerType: 'prompt',
       filename: 'sw.js',
-      injectRegister: null,     // 你已在 main.tsx 用 virtual:pwa-register 了
-
-      manifest: false,          // 我們用 public/manifest.json
+      injectRegister: null,
+      manifest: false,
       workbox: {
-        // ❗ 不要掃 csv/json；資料檔由 additionalManifestEntries 管
+        // ❗ 不要掃 csv/json
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-
+        // ❗ 只列 data/ 路徑（不要根目錄）
         additionalManifestEntries: [
           { url: 'data/Food_DB.csv',      revision: DATA_REV },
           { url: 'data/Unit_Map.csv',     revision: DATA_REV },
@@ -26,7 +24,6 @@ export default defineConfig({
           { url: 'data/Exercise_Met.csv', revision: DATA_REV },
           { url: 'data/version.json',     revision: DATA_REV },
         ],
-
         runtimeCaching: [
           { urlPattern: ({url}) => url.pathname.endsWith('.csv'),
             handler: 'CacheFirst', options: { cacheName: 'csv-cache' } },

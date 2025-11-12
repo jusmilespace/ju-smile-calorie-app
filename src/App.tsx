@@ -804,7 +804,7 @@ useEffect(() => {
 }, []);
 
 // 這個 early return 讓畫面在匯入完成前不渲染
-if (!ready) return null;
+
 // 你原本的四個 state 先設空字串
 const [srcPrecise, setSrcPrecise] = useState("");
 const [srcUnit,    setSrcUnit]    = useState("");
@@ -813,12 +813,13 @@ const [srcType,    setSrcType]    = useState("");
 
 // ready 後再從 localStorage 把真正的預設 URL 補回來
 useEffect(() => {
-  if (!ready) return;
+  if (!ready) return;  // 這裡只提前結束，不回傳任何東西
   setSrcPrecise(localStorage.getItem("JU_SRC_PRECISE") || "");
   setSrcUnit   (localStorage.getItem("JU_SRC_UNIT")    || "");
   setSrcMet    (localStorage.getItem("JU_SRC_MET")     || "");
   setSrcType   (localStorage.getItem("JU_SRC_TYPE")    || "");
 }, [ready]);
+
 
 
 
@@ -1009,6 +1010,7 @@ useEffect(() => {
     try { if (!typeTable["全穀雜糧類"]) console.warn("TypeTable: '全穀雜糧類' 不在表內"); } catch {}
   }, [typeTable]);
 // —— 新增：首次導入（從 public/ 四個 CSV 自動導入到 localStorage）——
+if (!ready) return <div className="wrap" style={{ padding: 16 }}>資料初始化中…</div>;
 
 
   return (

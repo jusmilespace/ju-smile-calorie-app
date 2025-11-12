@@ -29,7 +29,7 @@ const GlobalStyles = () => (
   `}</style>
 );
 
-/* ---------- Helpers (UTC 儲存、在地顯示) ---------- */
+/* ---------- Helpers ---------- */
 const pad = (n:number)=> String(n).padStart(2,"0");
 const addDays = (utcYmd: string, delta: number) => {
   const [y,m,d] = utcYmd.split("-").map(Number);
@@ -47,12 +47,11 @@ const utcKeyForLocalToday = () => {
   const utcMidnight = new Date(Date.UTC(y, m, d));
   return utcMidnight.toISOString().slice(0, 10);
 };
-
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const round0 = (n: number) => Math.round(n);
 const clamp = (n:number,min:number,max:number)=> Math.max(min, Math.min(max, n));
 
-/* ---------- 日期抬頭（補上） ---------- */
+/* ---------- 日期抬頭 ---------- */
 function DateHeader({ dateUTC, setDateUTC }: { dateUTC: string; setDateUTC: (s: string) => void }) {
   const localStr = localYMDFromUTC(dateUTC);
   return (
@@ -78,7 +77,6 @@ const DEFAULT_TYPE_TABLE: Record<string, { kcal: number; protein: number; carb: 
   "水果類": { kcal: 60, protein: 0.5, carb: 15, fat: 0 },
   "油脂類": { kcal: 45, protein: 0, carb: 0, fat: 5 },
   "堅果種子類": { kcal: 85, protein: 3, carb: 3, fat: 7 },
-
 };
 
 /* ---------- 可被 localStorage 覆蓋的資料 ---------- */
@@ -91,8 +89,8 @@ const PRECISE_DB: Record<string, Record<string, { kcal: number; protein: number;
 
 const UNIT_MAP: Record<string, Array<{ unit: string; perUnitServings: number; type: string }>> =
   JSON.parse(localStorage.getItem("JU_UNIT_MAP") || "null") || {
-    白飯: [{ unit: "碗", perUnitServings: 4, type: "全穀" }, { unit: "g", perUnitServings: 0.04, type: "全穀" }],
-    吐司: [{ unit: "片", perUnitServings: 1, type: "全穀" }],
+    白飯: [{ unit: "碗", perUnitServings: 4, type: "全穀雜糧類" }, { unit: "g", perUnitServings: 0.04, type: "全穀雜糧類" }],
+    吐司: [{ unit: "片", perUnitServings: 1, type: "全穀雜糧類" }],
   };
 
 /* ---------- 運動 MET ---------- */
@@ -111,7 +109,7 @@ const FAVORITES_KEY = "JU_MEAL_COMBOS";
 const loadCombos = (): MealCombo[] => JSON.parse(localStorage.getItem(FAVORITES_KEY) || "[]");
 const saveCombos = (arr: MealCombo[]) => localStorage.setItem(FAVORITES_KEY, JSON.stringify(arr));
 
-/* ---------- AddPayload 放前面 ---------- */
+/* ---------- AddPayload ---------- */
 type AddPayload =
   | { kind: "water"; water: number }
   | { kind: "weight"; weight: number }
@@ -136,13 +134,65 @@ function Ring({ label, value, goal, unit }: { label: string; value: number; goal
       <div style={{ position: "relative", width: 64, height: 64, margin: "0 auto" }}>
         <svg viewBox="0 0 36 36" style={{ width: 64, height: 64 }}>
           <path d="M18 2 a 16 16 0 1 1 0 32 a 16 16 0 1 1 0 -32" fill="none" stroke="#eee" strokeWidth={4} />
-          <path d="M18 2 a 16 16 0 1 1 0 32 a 16 16 0 1 1 0 -32" fill="none" stroke={COLORS.mint} strokeWidth={4} strokeDasharray={`${Math.round(pct)},100`} />
+          <path d="M18 2 a 16 16 0 1 1 0 32 a 16 16 0 1 1 0 -32" fill="none" stroke={COLORS.mint} strokeWidth={4} strokeDasharray={(Math.round(pct) + ",100")} />
         </svg>
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600 }}>{Math.round(pct)}%</div>
       </div>
       <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>{label}</div>
       <div style={{ fontSize: 12, fontWeight: 600 }}>{Math.round(value)}{unit || ""}/{Math.round(goal)}{unit || ""}</div>
     </div>
+  );
+}
+
+/* 進度條與體重進度卡 */
+function ProgressBar({ value }: { value: number }) {
+  const pct = clamp(value, 0, 100);
+  return (
+    <div style={{ width: "100%", height: 10, background: "#eef2f1", borderRadius: 999, overflow: "hidden", border: "1px solid var(--border)" }}>
+      <div style={{ width: String(pct) + "%", height: "100%", background: COLORS.mint, transition: "width .25s" }} />
+    </div>
+  );
+}
+function WeightProgress({
+  startKg, targetKg, currentKg, startDate, targetDate
+}: { startKg?: number | null; targetKg?: number | null; currentKg?: number | null; startDate?: string | null; targetDate?: string | null; }) {
+  if (startKg == null || targetKg == null || !(startKg > 0) || !(targetKg > 0)) {
+    return (
+      <Card title="體重進度" right={null}>
+        <div style={{ fontSize:12, color:"#777" }}>請到「我的」→ 目標設定，填寫「減重起始體重」與「體重目標」。</div>
+      </Card>
+    );
+  }
+  const cur = currentKg ?? startKg;
+  const total = targetKg - startKg; // 可為負或正
+  const done = cur - startKg;
+  const progress = Math.min(100, Math.max(0, (Math.sign(total) * done) / Math.abs(total || 1) * 100));
+
+  // Days left
+  let daysLeft: number | null = null;
+  if (targetDate) {
+    const now = new Date();
+    const dd = new Date(targetDate + "T00:00:00");
+    daysLeft = Math.ceil((dd.getTime() - now.getTime()) / (1000*60*60*24));
+  }
+
+  return (
+    <Card title="體重進度" right={null}>
+      <div style={{ display:"grid", gap:10 }}>
+        <div className="row" style={{ justifyContent:"space-between", fontSize:13, color:"#555" }}>
+          <div>起始：<b>{startKg}</b> kg{startDate ? `（${startDate}）` : ""}</div>
+          <div>目前：<b>{cur}</b> kg</div>
+          <div>目標：<b>{targetKg}</b> kg{targetDate ? `（${targetDate}）` : ""}</div>
+        </div>
+        <ProgressBar value={progress} />
+        <div className="row" style={{ justifyContent:"space-between", fontSize:12, color:"#666" }}>
+          <div>進度：<b>{Math.round(progress)}%</b></div>
+          <div>已變化：<b>{(cur - startKg > 0 ? "+" : "") + (Math.round((cur - startKg)*10)/10)}</b> kg</div>
+          <div>尚需：<b>{(Math.round((targetKg - cur)*10)/10)}</b> kg</div>
+          {daysLeft !== null && <div>剩餘：<b>{daysLeft}</b> 天</div>}
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -157,6 +207,10 @@ function HomeScreen({
   waterGoal,
   goals,
   onAddWeightDirect,
+  weightStartKg,
+  weightTargetKg,
+  weightStartDate,
+  weightTargetDate,
 }: {
   dayData: DayData;
   setOpenQuick: (x: any) => void;
@@ -167,6 +221,10 @@ function HomeScreen({
   waterGoal: number;
   goals: { kcalGoal: number; proteinGoal: number; activityGoal: number };
   onAddWeightDirect: () => void;
+  weightStartKg?: number | null;
+  weightTargetKg?: number | null;
+  weightStartDate?: string | null;
+  weightTargetDate?: string | null;
 }) {
   const kcal = (dayData.foods || []).reduce((s, f) => s + (f.kcal || 0), 0);
   const protein = round0((dayData.foods || []).reduce((s, f) => s + (f.protein || 0), 0));
@@ -220,6 +278,14 @@ function HomeScreen({
         <div className="card"><div style={{ fontSize: 12, color: "#666" }}>運動消耗</div><div style={{ fontSize: 18, fontWeight: 700 }}>{exerciseKcal} kcal</div></div>
         <div className="card"><div style={{ fontSize: 12, color: "#666" }}>淨熱量</div><div style={{ fontSize: 18, fontWeight: 700 }}>{netKcal} kcal</div></div>
       </div>
+
+      <WeightProgress
+        startKg={weightStartKg ?? null}
+        targetKg={weightTargetKg ?? null}
+        currentKg={dayData.body?.weight ?? null}
+        startDate={weightStartDate ?? null}
+        targetDate={weightTargetDate ?? null}
+      />
 
       {WaterCard}
 
@@ -317,8 +383,15 @@ function QuickPage({
   const [name, setName] = useState("");
   const [qty, setQty] = useState("1");
   const [unit, setUnit] = useState("g");
-  const [fallbackType, setFallbackType] = useState("全穀");
+  const [fallbackType, setFallbackType] = useState("全穀雜糧類");
   const [fallbackServ, setFallbackServ] = useState("1");
+  // 其他類 / 自定義熱量 專用欄位
+  const [customServ, setCustomServ] = useState("1");
+  const [customProtein, setCustomProtein] = useState("0");
+  const [customFat, setCustomFat] = useState("0");
+  const [customCarb, setCustomCarb] = useState("0");
+  const [customKcalPer, setCustomKcalPer] = useState("0");
+
   const qtyRef = useRef<HTMLInputElement | null>(null);
 
   const hitPrecise = !!PRECISE_DB[name];
@@ -326,7 +399,7 @@ function QuickPage({
   const unitOptions = hitPrecise ? Object.keys(PRECISE_DB[name] || {}) : (hitUnit ? (UNIT_MAP[name] || []).map(r => r.unit) : UNIT_WHITELIST);
   useEffect(() => { if (!unitOptions.includes(unit)) setUnit(unitOptions[0] || "g"); }, [name, unitOptions]);
 
-  // === 食物名稱：模糊選單 ===
+  // === 食物名稱：模糊選單 + 常用組合併入搜尋 ===
   const [showFoodSug, setShowFoodSug] = useState(false);
   const [highlightFood, setHighlightFood] = useState(0);
   const normalizeFood = (s: string) =>
@@ -350,6 +423,15 @@ function QuickPage({
     }).sort((a, b) => a.score - b.score);
     return scored.slice(0, 30);
   }, [name]);
+
+  // 常用組合：依關鍵字顯示，並提供一鍵加入
+  const comboMatches = useMemo(() => {
+    const all = loadCombos();
+    const q = normalizeFood(name);
+    if (!q) return all;
+    return all.filter(c => normalizeFood(c.name).includes(q) || c.items.some(it => normalizeFood(it.name || it.type || "").includes(q)));
+  }, [name]);
+
   function pickFoodSuggestion(i: number) {
     const it = foodSugList[i]; if (!it) return;
     setName(it.n);
@@ -390,10 +472,24 @@ function QuickPage({
       const s = q * row.perUnitServings;
       return { name, meal, type: row.type, servings: s, kcal: Math.round(base.kcal * s), protein: round1(base.protein * s), carb: round1(base.carb * s), fat: round1(base.fat * s) } as FoodItem;
     }
+    // 其他類 & 自定義熱量
+    if (fallbackType === "其他類") {
+      const s = parseFloat(customServ) || 0; if (s <= 0) return null;
+      const p = parseFloat(customProtein) || 0;
+      const f = parseFloat(customFat) || 0;
+      const c = parseFloat(customCarb) || 0; // 碳水
+      const perKcal = Math.round(p*4 + c*4 + f*9);
+      return { name, meal, type: "其他類", servings: s, kcal: Math.round(perKcal * s), protein: round1(p * s), carb: round1(c * s), fat: round1(f * s) } as FoodItem;
+    }
+    if (fallbackType === "自定義熱量") {
+      const s = parseFloat(customServ) || 0; if (s <= 0) return null;
+      const perK = parseFloat(customKcalPer) || 0;
+      return { name, meal, type: "自定義熱量", servings: s, kcal: Math.round(perK * s), protein: 0, carb: 0, fat: 0 } as FoodItem;
+    }
     const base = typeTable[fallbackType]; if (!base) return null;
     const s = parseFloat(fallbackServ) || 0; if (s <= 0) return null;
     return { name, meal, type: fallbackType, servings: s, kcal: Math.round(base.kcal * s), protein: round1(base.protein * s), carb: round1(base.carb * s), fat: round1(base.fat * s) } as FoodItem;
-  }, [name, qty, unit, meal, fallbackType, fallbackServ, hitPrecise, hitUnit, typeTable]);
+  }, [name, qty, unit, meal, fallbackType, fallbackServ, customServ, customProtein, customFat, customCarb, customKcalPer, hitPrecise, hitUnit, typeTable]);
 
   function addFood() {
     if (preview && meal) {
@@ -407,7 +503,8 @@ function QuickPage({
   const [exName, setExName] = useState("");
   const [met, setMet] = useState("");
   const [minutes, setMinutes] = useState("30");
-  const [weight, setWeight] = useState(localStorage.getItem("JU_LAST_WEIGHT") || "70");
+  // 移除預設 70（改成 localStorage 回填或空白）
+  const [weight, setWeight] = useState(localStorage.getItem("JU_LAST_WEIGHT") ?? "" );
   useEffect(() => { if (EXERCISE_MET[exName] != null) setMet(String(EXERCISE_MET[exName])); }, [exName]);
   const exKcal = useMemo(() => calcExerciseKcal(met, weight, minutes), [met, weight, minutes]);
 
@@ -463,8 +560,8 @@ function QuickPage({
             </select>
           </Field>
 
-          {/* 食物名稱：模糊下拉 */}
-          <Field label="食物名稱">
+          {/* 食物名稱：模糊下拉（含常用組合預覽） */}
+          <Field label="食物名稱 / 常用組合搜尋">
             <div style={{ position: "relative" }}>
               <input
                 className="input"
@@ -472,10 +569,10 @@ function QuickPage({
                 onChange={e => { setName((e.target as HTMLInputElement).value); setShowFoodSug(true); }}
                 onFocus={() => setShowFoodSug(true)}
                 onKeyDown={onFoodNameKeyDown}
-                placeholder="輸入關鍵字（例：白飯、雞胸、優格）"
+                placeholder="輸入關鍵字（例：白飯、雞胸、優格；或常用組合名稱）"
                 autoComplete="off"
               />
-              {showFoodSug && foodSugList.length > 0 && (
+              {showFoodSug && (
                 <div
                   style={{
                     position: "absolute", left: 0, right: 0, top: "100%",
@@ -484,9 +581,10 @@ function QuickPage({
                   }}
                   onMouseDown={e => e.preventDefault()}
                 >
+                  {/* 精準/單位換算候選 */}
                   {foodSugList.map((it, i) => (
                     <div
-                      key={it.n}
+                      key={"food-"+it.n}
                       onMouseEnter={() => setHighlightFood(i)}
                       onClick={() => pickFoodSuggestion(i)}
                       style={{
@@ -501,6 +599,26 @@ function QuickPage({
                       </span>
                     </div>
                   ))}
+                  {/* 常用組合預覽 */}
+                  {comboMatches.length > 0 && (
+                    <div style={{ borderTop:"1px solid var(--border)", marginTop:4 }}>
+                      <div style={{ fontSize:12, color:"#6b7280", padding:"6px 10px" }}>常用組合</div>
+                      {comboMatches.map((c, i) => (
+                        <div key={"combo-"+i} style={{ padding:"8px 10px", borderTop:"1px dashed #e5e7eb" }}>
+                          <div className="row" style={{ justifyContent:"space-between", alignItems:"center" }}>
+                            <div style={{ fontWeight:600 }}>{c.name}</div>
+                            <button className="btn" disabled={!meal} onClick={()=>{
+                              c.items.forEach(it => onAdd({ kind:"food", ...it, meal } as any));
+                              onNotify("已加入常用組合");
+                            }}>加入此組合</button>
+                          </div>
+                          <div style={{ fontSize:12, color:"#555", marginTop:4 }}>
+                            {c.items.map((it, idx)=> `${it.name || it.type}×${round1(it.servings)}份${idx<c.items.length-1?'、':''}`)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -514,20 +632,44 @@ function QuickPage({
           </Field>
         </div>
 
-        {/* 找不到精準/單位換算時，才顯示 Type × 份量估算 */}
+        {/* 找不到精準/單位換算時，才顯示 Type × 份量/其他類/自定義熱量 */}
         {!hitPrecise && !hitUnit && (
           <>
             <div className="grid grid-2" style={{ marginTop: 8 }}>
               <Field label="類別 Type">
                 <select className="input" value={fallbackType} onChange={e => setFallbackType((e.target as HTMLSelectElement).value)}>
-                  {Object.keys(typeTable).map(t => <option key={t} value={t}>{t}</option>)}
+                  {[...Object.keys(typeTable), "其他類", "自定義熱量"].map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </Field>
-              <Field label="份量 servings"><Numeric value={fallbackServ} onChange={setFallbackServ} /></Field>
+              {!(fallbackType === "其他類" || fallbackType === "自定義熱量") && (
+                <Field label="份量 servings"><Numeric value={fallbackServ} onChange={setFallbackServ} /></Field>
+              )}
             </div>
+
+            {/* 其他類：輸入每份三大營養素（碳水/蛋白/脂肪） */}
+            {fallbackType === "其他類" && (
+              <div className="grid grid-2" style={{ marginTop: 8 }}>
+                <Field label="份量（份）"><Numeric value={customServ} onChange={setCustomServ} /></Field>
+                <Field label="每份蛋白質 (g)"><Numeric value={customProtein} onChange={setCustomProtein} /></Field>
+                <Field label="每份脂肪 (g)"><Numeric value={customFat} onChange={setCustomFat} /></Field>
+                <Field label="每份碳水 (g)"><Numeric value={customCarb} onChange={setCustomCarb} /></Field>
+                <div className="card" style={{ gridColumn:"1 / span 2" }}>
+                  <div style={{ color:"#777" }}>系統以 4/4/9 計算每份熱量 = 蛋白質×4 + 碳水×4 + 脂肪×9。</div>
+                </div>
+              </div>
+            )}
+
+            {/* 自定義熱量：輸入每份熱量 */}
+            {fallbackType === "自定義熱量" && (
+              <div className="grid grid-2" style={{ marginTop: 8 }}>
+                <Field label="份量（份）"><Numeric value={customServ} onChange={setCustomServ} /></Field>
+                <Field label="每份熱量 (kcal)"><Numeric value={customKcalPer} onChange={setCustomKcalPer} /></Field>
+              </div>
+            )}
+
             <div className="card" style={{ marginTop: 8 }}>
               <div style={{ color: "#777" }}>
-                未搜尋到符合的食物, 請選擇類別 Type 與份量, 以估算熱量。
+                未搜尋到符合的食物, 請選擇類別 Type 與份量，或使用「其他類 / 自定義熱量」估算。
               </div>
             </div>
           </>
@@ -601,7 +743,6 @@ function QuickPage({
             className="btn btn-solid"
             disabled={!exName || !(parseFloat(met) > 0) || !(parseFloat(minutes) > 0) || !(parseFloat(weight) > 0)}
             onClick={() => {
-              // 移除多餘的 type 屬性，符合 ExerciseItem
               onAdd({ kind: "exercise", name: exName, met: +met, minutes: +minutes, weight: +weight, kcal: exKcal });
               onNotify("已加入");
               goHome();
@@ -610,7 +751,7 @@ function QuickPage({
         </div>
       </div>
 
-      {/* MET 參考表（前端參考） */}
+      {/* MET 參考表 */}
       <div className="card">
         <div className="row" style={{ justifyContent: "space-between", marginBottom: 6 }}>
           <div style={{ fontWeight: 600 }}>MET 參考表</div>
@@ -677,7 +818,7 @@ export default function App() {
     localStorage.setItem("JU_SRC_UNIT", srcUnit || "");
     localStorage.setItem("JU_SRC_MET", srcMet || "");
     localStorage.setItem("JU_SRC_TYPE", srcType || "");
-    setToast("來源已儲存");
+    notify("來源已儲存");
   }
 
   async function syncPrecise() {
@@ -691,7 +832,7 @@ export default function App() {
       db[f][u] = { kcal: +r.kcal || 0, protein: +r.protein || 0, carb: +r.carb || 0, fat: +r.fat || 0 };
     }
     localStorage.setItem("JU_PRECISE_DB", JSON.stringify(db));
-    setToast("精準資料已同步");
+    notify("精準資料已同步");
   }
   async function syncUnit() {
     if (!srcUnit) return;
@@ -701,10 +842,10 @@ export default function App() {
       const f = r.food, u = r.unit;
       if (!f || !u) continue;
       if (!map[f]) map[f] = [];
-      map[f].push({ unit: u, perUnitServings: +r.perUnitServings || 0, type: r.type || "其他" });
+      map[f].push({ unit: u, perUnitServings: +r.perUnitServings || 0, type: r.type || "其他類" });
     }
     localStorage.setItem("JU_UNIT_MAP", JSON.stringify(map));
-    setToast("單位換算已同步");
+    notify("單位換算已同步");
   }
   async function syncMet() {
     if (!srcMet) return;
@@ -716,7 +857,7 @@ export default function App() {
       if (n && !Number.isNaN(v)) met[n] = v;
     }
     localStorage.setItem("JU_EXERCISE_MET", JSON.stringify(met));
-    setToast("MET 已同步");
+    notify("MET 已同步");
   }
   async function syncType() {
     if (!srcType) return;
@@ -734,7 +875,7 @@ export default function App() {
     }
     localStorage.setItem("JU_TYPE_TABLE", JSON.stringify(table));
     setTypeTable(table); // 即時更新
-    setToast("Type Table 已同步");
+    notify("Type Table 已同步");
   }
 
   function onAdd(payload: AddPayload) {
@@ -769,9 +910,143 @@ export default function App() {
     }
   };
 
+  // 匯出 / 匯入 / 一鍵備份到 Google Drive
+  function exportJSON(triggerDownload: boolean = true) {
+    const data: Record<string, any> = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)!;
+      try { data[k] = localStorage.getItem(k); } catch {}
+    }
+    const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), data }, null, 2)], { type: "application/json" });
+    if (triggerDownload) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ju-smile-backup-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      notify("已匯出 JSON");
+    }
+    return blob;
+  }
+  async function backupToGoogleDrive() {
+  // 先產生檔案
+  const blob = exportJSON(false);
+  const file = new File([blob], `ju-smile-backup-${new Date().toISOString().slice(0,10)}.json`, { type: "application/json" });
+
+  // 行動端：支援分享檔案就呼叫分享
+  // @ts-ignore
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      // @ts-ignore
+      await navigator.share({ files: [file], title: "Ju Smile 備份", text: "Ju Smile 減脂日誌備份檔" });
+      notify("已觸發分享");
+      return;
+    } catch (e) {
+      // 使用者取消或失敗就往下走下載
+    }
+  }
+
+  // 桌面端/不支援分享：直接下載 + 立刻導向 Drive（同分頁，避免被擋）
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = file.name;
+  document.body.appendChild(a);
+  a.click();
+  URL.revokeObjectURL(url);
+  a.remove();
+
+  // 同步手勢內立即導向，避免被視為彈窗
+  location.href = "https://drive.google.com/drive/my-drive";
+  // 顯示提示
+  notify("已下載備份，並開啟 Google Drive（請手動上傳檔案）");
+}
+
+  function importJSONFromFile(file: File) {
+    const fr = new FileReader();
+    fr.onload = () => {
+      try {
+        const parsed = JSON.parse(String(fr.result || "{}"));
+        const obj = parsed?.data || parsed;
+        Object.keys(obj || {}).forEach(k => {
+          try { localStorage.setItem(k, obj[k]); } catch {}
+        });
+        notify("已匯入 JSON，請手動重新整理頁面以套用。");
+      } catch (e) {
+        notify("匯入失敗：檔案格式不正確");
+      }
+    };
+    fr.readAsText(file);
+  }
+
   useEffect(() => {
     try { if (!typeTable["全穀雜糧類"]) console.warn("TypeTable: '全穀雜糧類' 不在表內"); } catch {}
   }, [typeTable]);
+// —— 新增：首次導入（從 public/ 四個 CSV 自動導入到 localStorage）——
+useEffect(() => {
+  (async () => {
+    if (localStorage.getItem("JU_IMPORTED_V1")) return;
+
+    const base = (import.meta as any).env?.BASE_URL || "/";
+    const url = (p: string) => `${base}${p}?v=2025-11-12`; // 可用今天日期當版本
+
+    // 直接沿用你既有的 fetchCsv 與同步邏輯格式
+    const [foodRows, unitRows, typeRows, metRows] = await Promise.all([
+      fetchCsv(url("Food_DB.csv")),
+      fetchCsv(url("Unit_Map.csv")),
+      fetchCsv(url("Type_Table.csv")),
+      fetchCsv(url("Exercise_Met.csv")),
+    ]);
+
+    // —— 建 JU_PRECISE_DB ——（與你 syncPrecise 完全相同的落地格式）
+    const preciseDB: any = {};
+    for (const r of foodRows) {
+      const f = r.food, u = r.unit;
+      if (!f || !u) continue;
+      if (!preciseDB[f]) preciseDB[f] = {};
+      preciseDB[f][u] = { kcal: +r.kcal || 0, protein: +r.protein || 0, carb: +r.carb || 0, fat: +r.fat || 0 };
+    }
+    localStorage.setItem("JU_PRECISE_DB", JSON.stringify(preciseDB));
+
+    // —— 建 JU_UNIT_MAP ——（與你 syncUnit 相同）
+    const unitMap: any = {};
+    for (const r of unitRows) {
+      const f = r.food, u = r.unit;
+      if (!f || !u) continue;
+      if (!unitMap[f]) unitMap[f] = [];
+      unitMap[f].push({ unit: u, perUnitServings: +r.perUnitServings || 0, type: r.type || "其他類" });
+    }
+    localStorage.setItem("JU_UNIT_MAP", JSON.stringify(unitMap));
+
+    // —— 建 JU_EXERCISE_MET ——（與你 syncMet 相同）
+    const met: any = {};
+    for (const r of metRows) {
+      const n = (r.name ?? r.活動 ?? r.activity ?? r.Activity ?? "").toString().trim();
+      const v = Number(r.met ?? r.MET ?? r.Met ?? r.met_value ?? r.value ?? NaN);
+      if (n && !Number.isNaN(v)) met[n] = v;
+    }
+    localStorage.setItem("JU_EXERCISE_MET", JSON.stringify(met));
+
+    // —— 建 JU_TYPE_TABLE ——（與你 syncType 相同 + 即時 setState）
+    const table: any = {};
+    for (const r of typeRows) {
+      const t = r.type || r.Type;
+      if (!t) continue;
+      table[t] = {
+        kcal: +r.kcal || +r.Kcal || 0,
+        protein: +r.protein || +r.Protein || 0,
+        carb: +r.carb || +r.Carb || 0,
+        fat: +r.fat || +r.Fat || 0,
+      };
+    }
+    localStorage.setItem("JU_TYPE_TABLE", JSON.stringify(table));
+    setTypeTable(table);
+
+    localStorage.setItem("JU_IMPORTED_V1", "1");
+    localStorage.setItem("JU_LAST_SYNC_AT", new Date().toISOString());
+  })().catch(console.error);
+}, []);
 
   return (
     <div>
@@ -788,6 +1063,10 @@ export default function App() {
         waterGoal={settings.waterGoal || 2000}
         goals={{ kcalGoal: settings.kcalGoal || 1600, proteinGoal: settings.proteinGoal || 160, activityGoal: ((settings as any).activityGoal || 30) }}
         onAddWeightDirect={onAddWeightDirect}
+        weightStartKg={(settings as any).weightStartKg ?? null}
+        weightTargetKg={settings.weightTargetKg ?? null}
+        weightStartDate={(settings as any).weightStartDate ?? null}
+        weightTargetDate={(settings as any).weightTargetDate ?? null}
       />}
 
       {tab === "quick" && <QuickPage onAdd={onAdd} onNotify={notify} goHome={() => setTab("home")} typeTable={typeTable} />}
@@ -806,10 +1085,13 @@ export default function App() {
             </div>
             <div className="grid grid-2" style={{ marginTop: 8 }}>
               <Field label="體重目標 (kg)"><Numeric value={String(settings.weightTargetKg || "")} onChange={(v) => setSettings(s => ({ ...s, weightTargetKg: parseFloat(v || "0") }))} /></Field>
-              <Field label="達成日期 (YYYY-MM-DD)"><input className="input" value={settings.weightTargetDate || ""} onChange={(e) => setSettings(s => ({ ...s, weightTargetDate: (e.target as HTMLInputElement).value }))} /></Field>
-              <Field label="減重起始體重 (kg)"><Numeric value={String(settings.weightStartKg ?? "")} onChange={(v) => setSettings(s => ({ ...s, weightStartKg: v === "" ? null : parseFloat(v) }))} /></Field>
+              <Field label="預計達成日期"><input type="date" className="input" value={(settings as any).weightTargetDate || ""} onChange={(e) => setSettings(s => ({ ...s, weightTargetDate: (e.target as HTMLInputElement).value } as any))} /></Field>
+              <Field label="減重起始體重 (kg)"><Numeric value={String((settings as any).weightStartKg ?? "")} onChange={(v) => setSettings(s => ({ ...s, weightStartKg: v === "" ? null : parseFloat(v) } as any))} /></Field>
+              <Field label="減重起始日期"><input type="date" className="input" value={(settings as any).weightStartDate || ""} onChange={(e) => setSettings(s => ({ ...s, weightStartDate: (e.target as HTMLInputElement).value } as any))} /></Field>
             </div>
-            <div style={{ textAlign: "right", marginTop: 8 }}><button className="btn btn-solid" onClick={() => { saveSettings(settings); setToast("已儲存"); }}>儲存</button></div>
+            <div style={{ textAlign: "right", marginTop: 8 }}>
+              <button className="btn btn-solid" onClick={() => { saveSettings(settings); notify("已儲存"); }}>儲存</button>
+            </div>
           </Card>
 
           <Card title="資料來源（CSV / Google Sheets）" right={null}>
@@ -834,6 +1116,22 @@ export default function App() {
               <button className="btn" onClick={syncMet}>同步運動MET</button>
               <button className="btn" onClick={syncType}>同步 Type_Table</button>
             </div>
+          </Card>
+
+          {/* 備份 / 匯入 */}
+          <Card title="備份 / 匯入" right={null}>
+            <div className="row" style={{ gap:8, flexWrap:"wrap" }}>
+              <button className="btn" onClick={()=>exportJSON(true)}>匯出 JSON</button>
+              <label className="btn" style={{ display:"inline-flex", alignItems:"center", gap:6, cursor:"pointer" }}>
+                匯入 JSON
+                <input type="file" accept="application/json" style={{ display:"none" }} onChange={(e)=>{
+                  const f = (e.target as HTMLInputElement).files?.[0];
+                  if (f) importJSONFromFile(f);
+                }}/>
+              </label>
+              <button className="btn btn-solid" onClick={backupToGoogleDrive}>一鍵備份到 Google Drive</button>
+            </div>
+            <div style={{ fontSize:12, color:"#6b7280", marginTop:6 }}>匯入後為確保 UI 重新載入，請手動重新整理頁面。</div>
           </Card>
         </div>
       )}

@@ -1,24 +1,35 @@
+// src/storage.ts
+import type { DayData, Settings } from "./types";
 
-import { DayData, Settings } from './types'
+const SETTINGS_KEY = "JU_SETTINGS";
+const DAY_PREFIX = "JU_DAY_";
 
-const SETTINGS_KEY = 'jusmile_settings_v2'
-const COMBOS_KEY = 'jusmile_combos_v2'
-export const dayKey = (iso: string)=> `jusmile_day_${iso}`
-
-export const loadSettings = (): Settings => {
-  try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null') || { kcalGoal:1600, proteinGoal:160, waterGoal:2000 } }
-  catch { return { kcalGoal:1600, proteinGoal:160, waterGoal:2000 } }
+// 載入設定（若無則給空物件，交由畫面顯示為空白或 0）
+export function loadSettings(): Settings {
+  try {
+    return JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+  } catch {
+    return {};
+  }
 }
-export const saveSettings = (s: Settings) => localStorage.setItem(SETTINGS_KEY, JSON.stringify(s))
 
-export const loadDay = (iso: string): DayData => {
-  try { return JSON.parse(localStorage.getItem(dayKey(iso)) || 'null') || { foods:[], water:0, exercises:[], body:{} } }
-  catch { return { foods:[], water:0, exercises:[], body:{} } }
+export function saveSettings(s: Settings) {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+  } catch {}
 }
-export const saveDay = (iso: string, d: DayData) => localStorage.setItem(dayKey(iso), JSON.stringify(d))
 
-export const loadCombos = ():any[]=>{
-  try { return JSON.parse(localStorage.getItem(COMBOS_KEY) || 'null') || [] }
-  catch { return [] }
+// 以 UTC 日期字串當主鍵，避免 DST 影響
+export function loadDay(utcYmd: string): DayData {
+  try {
+    return JSON.parse(localStorage.getItem(DAY_PREFIX + utcYmd) || "{}");
+  } catch {
+    return {};
+  }
 }
-export const saveCombos = (arr:any[]) => localStorage.setItem(COMBOS_KEY, JSON.stringify(arr))
+
+export function saveDay(utcYmd: string, data: DayData) {
+  try {
+    localStorage.setItem(DAY_PREFIX + utcYmd, JSON.stringify(data));
+  } catch {}
+}

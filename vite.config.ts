@@ -3,7 +3,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-const DATA_REV = '2025-11-12-2158' // ← 每次改資料就換一個新字串
+const DATA_REV = '2025-11-12-2218' // ← 每次改資料就換一個新字串
 
 export default defineConfig({
   // GitHub Pages 子路徑（一定要正確）

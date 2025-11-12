@@ -25,6 +25,8 @@ export default defineConfig({
           { url: 'data/Type_Table.csv',   revision: DATA_REV },
           { url: 'data/Exercise_Met.csv', revision: DATA_REV },
           { url: 'data/version.json',     revision: DATA_REV },
+{ url: 'manifest.webmanifest', revision: '2025-11-12-2208' },
+
         ],
         runtimeCaching: [
           {
